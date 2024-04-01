@@ -1,43 +1,63 @@
 import Solver from "./classes/solver";
 import Board from "./classes/board";
 import { readFileSync } from "fs";
+import path from "path";
 
 const fileName: string = process.argv[2];
 
-const lines: string[] = readFileSync(`./puzzles/${fileName}`, "utf8").split(
-    "\n"
-);
-const n: number = parseInt(lines[0]);
-const tiles: number[][] = Array(n).fill(Array(n));
+if (!fileName) {
+	console.error(
+		"Please provide a puzzle file name as a command-line argument.",
+	);
+	process.exit(1);
+}
 
-lines.forEach((line, row) => {
-    if (row === 0) {
-        return;
-    }
+const puzzlesDir = path.join(__dirname, "..", "puzzles");
+const filePath = path.join(puzzlesDir, fileName);
 
-    const nums = line
-        .split(" ")
-        .map((s) => parseInt(s))
-        .filter((x) => !isNaN(x));
+try {
+	const fileContent = readFileSync(filePath, "utf8");
+	const initial: Board = parseBoard(fileContent);
 
-    if (nums.length === 0) {
-        return;
-    }
+	// solve the puzzle
+	const solver: Solver = new Solver(initial);
 
-    tiles[row - 1] = nums;
-});
+	// print solution to standard output
+	if (!solver.getIsSolvable()) {
+		console.log("No solution possible");
+	} else {
+		console.log(`Minimum number of moves = ${solver.moves()}`);
+		const solution = solver.getSolution();
+		if (solution != null) {
+			for (const board of solution) {
+				console.log(board.toString());
+			}
+		}
+	}
+} catch (err) {
+	console.error(`Error reading file: ${(err as Error).message}`);
+	process.exit(1);
+}
 
-const initial: Board = new Board(tiles);
+function parseBoard(fileContent: string): Board {
+	const lines: string[] = fileContent.split("\n");
+	const n: number = parseInt(lines[0]);
+	const tiles: number[][] = Array(n).fill(Array(n));
 
-// solve the puzzle
-const solver: Solver = new Solver(initial);
+	for (let row = 1; row < lines.length; row++) {
+		if (lines[row].trim() === "") {
+			continue;
+		}
 
-// print solution to standard output
-if (!solver.isSolvable()) {
-    console.log("No solution possible");
-} else {
-    console.log("Minimum number of moves = " + solver.moves());
-    for (let board of solver.solution()) {
-        console.log(board.toString());
-    }
+		const nums = lines[row]
+			.split(" ")
+			.map((s) => parseInt(s))
+			.filter((x) => !Number.isNaN(x) && x !== n * n);
+
+		if (nums.length === n) {
+			tiles[row - 1] = nums;
+		}
+	}
+
+	return new Board(tiles);
 }

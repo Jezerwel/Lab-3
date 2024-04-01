@@ -1,57 +1,132 @@
 class Board {
-    // create a board from an n-by-n array of tiles,
-    // where tiles[row][col] = tile at (row, col)
-    constructor(tiles: number[][]) {
-        // YOUR CODE HERE
-    }
+	private tiles: number[][];
+	private n: number;
 
-    // string representation of this board
-    toString(): string {
-        // PLS MODIFY
-        return "";
-    }
+	constructor(tiles: number[][]) {
+		this.n = tiles.length;
+		this.tiles = tiles.map((row) => row.slice());
+	}
 
-    // board dimension n
-    dimension(): number {
-        // PLS MODIFY
-        return 0;
-    }
+	toString(): string {
+		return `${this.n}\n${this.tiles.map((row) => row.join(" ")).join("\n")}`;
+	}
 
-    // number of tiles out of place
-    hamming(): number {
-        // PLS MODIFY
-        return 0;
-    }
+	dimension(): number {
+		return this.n;
+	}
 
-    // sum of Manhattan distances between tiles and goal
-    manhattan(): number {
-        // PLS MODIFY
-        return 0;
-    }
+	hamming(): number {
+		let count = 0;
+		for (let i = 0; i < this.n; i++) {
+			for (let j = 0; j < this.n; j++) {
+				const tile = this.tiles[i][j];
+				if (tile !== 0 && tile !== i * this.n + j + 1) {
+					count++;
+				}
+			}
+		}
+		return count;
+	}
 
-    // is this board the goal board?
-    isGoal(): boolean {
-        // PLS MODIFY
-        return true;
-    }
+	manhattan(): number {
+		let distance = 0;
+		for (let i = 0; i < this.n; i++) {
+			for (let j = 0; j < this.n; j++) {
+				const tile = this.tiles[i][j];
+				if (tile !== 0) {
+					const goalRow = Math.floor((tile - 1) / this.n);
+					const goalCol = (tile - 1) % this.n;
+					distance += Math.abs(i - goalRow) + Math.abs(j - goalCol);
+				}
+			}
+		}
+		return distance;
+	}
 
-    // does this board equal y?
-    equals(y: Board): boolean {
-        // PLS MODIFY
-        return true;
-    }
+	isGoal(): boolean {
+		for (let i = 0; i < this.n; i++) {
+			for (let j = 0; j < this.n; j++) {
+				const tile = this.tiles[i][j];
+				if (tile !== (i * this.n + j + 1) % (this.n * this.n)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
 
-    // all neighboring boards
-    neighbors(): Board[] {
-        // PLS MODIFY
-        return [];
-    }
+	equals(other: Board): boolean {
+		if (this.n !== other.dimension()) {
+			return false;
+		}
+		for (let i = 0; i < this.n; i++) {
+			for (let j = 0; j < this.n; j++) {
+				if (this.tiles[i][j] !== other.tiles[i][j]) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
 
-    // a board that is obtained by exchanging any pair of tiles
-    twin(): Board {
-        // PLS MODIFY
-        return new Board([[]]);
-    }
+	neighbors(): Board[] {
+		const neighbors: Board[] = [];
+		const [blankRow, blankCol] = this.findBlankPosition();
+
+		const directions = [
+			[0, -1], // up
+			[0, 1], // down
+			[-1, 0], // left
+			[1, 0], // right
+		];
+
+		for (const [dRow, dCol] of directions) {
+			const newRow = blankRow + dRow;
+			const newCol = blankCol + dCol;
+
+			if (newRow >= 0 && newRow < this.n && newCol >= 0 && newCol < this.n) {
+				const newTiles = this.copyTiles();
+				[newTiles[blankRow][blankCol], newTiles[newRow][newCol]] = [
+					newTiles[newRow][newCol],
+					0,
+				];
+				neighbors.push(new Board(newTiles));
+			}
+		}
+
+		return neighbors;
+	}
+
+	twin(): Board {
+		const newTiles = this.copyTiles();
+		for (let i = 0; i < this.n; i++) {
+			for (let j = 0; j < this.n - 1; j++) {
+				if (newTiles[i][j] !== 0 && newTiles[i][j + 1] !== 0) {
+					[newTiles[i][j], newTiles[i][j + 1]] = [
+						newTiles[i][j + 1],
+						newTiles[i][j],
+					];
+					return new Board(newTiles);
+				}
+			}
+		}
+		throw new Error("Unable to create twin board");
+	}
+
+	private findBlankPosition(): [number, number] {
+		for (let i = 0; i < this.n; i++) {
+			for (let j = 0; j < this.n; j++) {
+				if (this.tiles[i][j] === 0) {
+					return [i, j];
+				}
+			}
+		}
+		throw new Error("Blank square not found");
+	}
+
+	private copyTiles(): number[][] {
+		return this.tiles.map((row) => row.slice());
+	}
 }
 
 export default Board;
