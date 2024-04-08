@@ -1,23 +1,36 @@
 import Board from "./board";
-import { MinPriorityQueue } from "@datastructures-js/priority-queue";
+import { MinHeap } from "min-heap-typed";
 
-interface SearchNode {
+class SearchNode {
 	board: Board;
 	moves: number;
+	previousSearchNode: SearchNode | null;
 	priority: number;
-	prev: SearchNode | null;
+
+	constructor(
+		board: Board,
+		moves: number,
+		previousSearchNode: SearchNode | null,
+		priority: number,
+	) {
+		this.board = board;
+		this.moves = moves;
+		this.previousSearchNode = previousSearchNode;
+		this.priority = priority;
+	}
 }
 
 class Solver {
 	private initialBoard: Board;
 	private isSolvable: boolean;
-	private minMoves: number = Infinity;
-	private solution: Board[] | null = null;
+	private minMoves: number;
+	private solution: Board[] | null;
 
 	constructor(initial: Board) {
 		this.initialBoard = initial;
-		this.isSolvable = true;
-		this.solve();
+		this.isSolvable = this.solvePuzzle();
+		this.minMoves = this.isSolvable ? this.getMinMoves() : -1;
+		this.solution = this.isSolvable ? this.getSolutionPath() : null;
 	}
 
 	getIsSolvable(): boolean {
@@ -25,92 +38,128 @@ class Solver {
 	}
 
 	moves(): number {
-		return this.minMoves === Infinity ? -1 : this.minMoves;
+		return this.minMoves;
 	}
 
 	getSolution(): Board[] | null {
 		return this.solution;
 	}
 
-	private solve() {
-		const initial: SearchNode = this.createSearchNode(this.initialBoard, 0);
-		const twin: SearchNode = this.createSearchNode(this.initialBoard.twin(), 0);
-
-		const pq = new MinPriorityQueue<SearchNode>(
-			(node: SearchNode) => node.priority,
+	private solvePuzzle(): boolean {
+		const initialSearchNode = new SearchNode(
+			this.initialBoard,
+			0,
+			null,
+			this.initialBoard.manhattan(),
+		);
+		const twinSearchNode = new SearchNode(
+			this.initialBoard.twin(),
+			0,
+			null,
+			this.initialBoard.twin().manhattan(),
 		);
 
-		pq.enqueue(initial);
-		pq.enqueue(twin);
+		const priorityQueue = new MinHeap<SearchNode>([], {
+			comparator: (a, b) => a.priority - b.priority,
+		});
+		priorityQueue.add(initialSearchNode);
+		priorityQueue.add(twinSearchNode);
 
-		let prevBoard: Board | null = null;
+		const visitedBoards = new Set<string>();
 
-		while (!pq.isEmpty()) {
-			const node = pq.dequeue();
+		while (!priorityQueue.isEmpty()) {
+			const currentNode = priorityQueue.poll()!;
 
-			if (node.board.isGoal()) {
-				this.updateSolution(node);
-				return;
+			if (currentNode.board.isGoal()) {
+				return true;
 			}
 
-			if (this.shouldSkipNode(prevBoard, node.board)) {
+			const boardString = currentNode.board.toString();
+			if (visitedBoards.has(boardString)) {
 				continue;
 			}
+			visitedBoards.add(boardString);
 
-			prevBoard = node.board;
-
-			this.addNeighborsToQueue(node, pq);
+			const neighbors = currentNode.board.neighbors();
+			for (const neighbor of neighbors) {
+				if (!visitedBoards.has(neighbor.toString())) {
+					const newNode = new SearchNode(
+						neighbor,
+						currentNode.moves + 1,
+						currentNode,
+						neighbor.manhattan() + currentNode.moves + 1,
+					);
+					priorityQueue.add(newNode);
+				}
+			}
 		}
 
-		this.isSolvable = false;
+		return false;
 	}
 
-	private createSearchNode(board: Board, moves: number): SearchNode {
-		return {
-			board,
-			moves,
-			priority: moves + board.manhattan(),
-			prev: null,
-		};
-	}
+	private getMinMoves(): number {
+		const current: SearchNode | null = this.findGoalNode();
+		let moves = 0;
 
-	private updateSolution(node: SearchNode): void {
-		this.minMoves = node.moves;
-		this.solution = this.buildSolution(node);
-	}
-
-	private shouldSkipNode(
-		prevBoard: Board | null,
-		currentBoard: Board,
-	): boolean {
-		return prevBoard?.equals(currentBoard) ?? false;
-	}
-
-	private addNeighborsToQueue(
-		node: SearchNode,
-		pq: MinPriorityQueue<SearchNode>,
-	): void {
-		for (const neighbor of node.board.neighbors()) {
-			const newNode: SearchNode = {
-				board: neighbor,
-				moves: node.moves + 1,
-				priority: node.moves + 1 + neighbor.manhattan(),
-				prev: node,
-			};
-			pq.enqueue(newNode);
+		if (current !== null) {
+			moves = current.moves;
 		}
+
+		return moves;
 	}
 
-	private buildSolution(node: SearchNode): Board[] {
+	private getSolutionPath(): Board[] {
 		const solution: Board[] = [];
-		let curr: SearchNode | null = node;
+		let current: SearchNode | null = this.findGoalNode();
 
-		while (curr !== null) {
-			solution.unshift(curr.board);
-			curr = curr.prev;
+		if (current !== null) {
+			while (current !== null) {
+				solution.unshift(current.board);
+				current = current.previousSearchNode;
+			}
 		}
 
 		return solution;
+	}
+
+	private findGoalNode(): SearchNode | null {
+		const priorityQueue = new MinHeap<SearchNode>([], {
+			comparator: (a, b) => a.priority - b.priority,
+		});
+		priorityQueue.add(
+			new SearchNode(this.initialBoard, 0, null, this.initialBoard.manhattan()),
+		);
+
+		const visitedBoards = new Set<string>();
+
+		while (!priorityQueue.isEmpty()) {
+			const currentNode = priorityQueue.poll()!;
+
+			if (currentNode.board.isGoal()) {
+				return currentNode;
+			}
+
+			const boardString = currentNode.board.toString();
+			if (visitedBoards.has(boardString)) {
+				continue;
+			}
+			visitedBoards.add(boardString);
+
+			const neighbors = currentNode.board.neighbors();
+			for (const neighbor of neighbors) {
+				if (!visitedBoards.has(neighbor.toString())) {
+					const newNode = new SearchNode(
+						neighbor,
+						currentNode.moves + 1,
+						currentNode,
+						neighbor.manhattan() + currentNode.moves + 1,
+					);
+					priorityQueue.add(newNode);
+				}
+			}
+		}
+
+		return null;
 	}
 }
 

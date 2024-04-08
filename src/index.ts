@@ -19,12 +19,10 @@ try {
 	const fileContent = readFileSync(filePath, "utf8");
 	const initial: Board = parseBoard(fileContent);
 
-	// solve the puzzle
 	const solver: Solver = new Solver(initial);
 
-	// print solution to standard output
 	if (!solver.getIsSolvable()) {
-		console.log("No solution possible");
+		console.log("Puzzle is unsolvable");
 	} else {
 		console.log(`Minimum number of moves = ${solver.moves()}`);
 		const solution = solver.getSolution();
